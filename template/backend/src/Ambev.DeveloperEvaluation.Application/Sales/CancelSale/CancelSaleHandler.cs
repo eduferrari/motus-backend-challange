@@ -1,7 +1,6 @@
 using Ambev.DeveloperEvaluation.Application.Sales;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
 using AutoMapper;
-using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -25,14 +24,12 @@ public class CancelSaleHandler : IRequestHandler<CancelSaleCommand, SaleResult>
 
     public async Task<SaleResult> Handle(CancelSaleCommand request, CancellationToken cancellationToken)
     {
-        var validator = new CancelSaleValidator();
-        var validationResult = await validator.ValidateAsync(request, cancellationToken);
-        if (!validationResult.IsValid)
-            throw new ValidationException(validationResult.Errors);
-
         var sale = await _saleRepository.GetByIdAsync(request.Id, cancellationToken);
         if (sale is null)
             throw new KeyNotFoundException($"Sale with ID {request.Id} not found");
+
+        if (sale.IsCancelled)
+            return _mapper.Map<SaleResult>(sale);
 
         sale.Cancel();
         var cancelledSale = await _saleRepository.UpdateAsync(sale, cancellationToken);

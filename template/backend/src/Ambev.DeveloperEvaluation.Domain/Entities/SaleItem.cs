@@ -46,6 +46,7 @@ public class SaleItem : BaseEntity
     public void Cancel()
     {
         IsCancelled = true;
+        Discount = 0;
         TotalAmount = 0;
     }
 

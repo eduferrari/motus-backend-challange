@@ -3,6 +3,7 @@ using Ambev.DeveloperEvaluation.Application.Sales.CancelSaleItem;
 using Ambev.DeveloperEvaluation.Application.Sales.CreateSale;
 using Ambev.DeveloperEvaluation.Application.Sales.DeleteSale;
 using Ambev.DeveloperEvaluation.Application.Sales.GetSale;
+using Ambev.DeveloperEvaluation.Application.Sales.GetSales;
 using Ambev.DeveloperEvaluation.Application.Sales.UpdateSale;
 using Ambev.DeveloperEvaluation.WebApi.Common;
 using Ambev.DeveloperEvaluation.WebApi.Features.Sales.CancelSale;
@@ -10,6 +11,7 @@ using Ambev.DeveloperEvaluation.WebApi.Features.Sales.CancelSaleItem;
 using Ambev.DeveloperEvaluation.WebApi.Features.Sales.CreateSale;
 using Ambev.DeveloperEvaluation.WebApi.Features.Sales.DeleteSale;
 using Ambev.DeveloperEvaluation.WebApi.Features.Sales.GetSale;
+using Ambev.DeveloperEvaluation.WebApi.Features.Sales.GetSales;
 using Ambev.DeveloperEvaluation.WebApi.Features.Sales.UpdateSale;
 using AutoMapper;
 using MediatR;
@@ -28,6 +30,48 @@ public class SalesController : BaseController
     {
         _mediator = mediator;
         _mapper = mapper;
+    }
+
+    [HttpGet]
+    [ProducesResponseType(typeof(PaginatedResponse<SaleResponse>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiResponse), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetSales(
+        [FromQuery(Name = "_page")] int page = 1,
+        [FromQuery(Name = "_size")] int size = 10,
+        [FromQuery(Name = "_order")] string? order = null,
+        [FromQuery] string? saleNumber = null,
+        [FromQuery] Guid? customerId = null,
+        [FromQuery] Guid? branchId = null,
+        [FromQuery] bool? isCancelled = null,
+        [FromQuery(Name = "_minSaleDate")] DateTime? minSaleDate = null,
+        [FromQuery(Name = "_maxSaleDate")] DateTime? maxSaleDate = null,
+        CancellationToken cancellationToken = default)
+    {
+        var request = new GetSalesRequest
+        {
+            Page = page,
+            Size = size,
+            Order = order,
+            SaleNumber = saleNumber,
+            CustomerId = customerId,
+            BranchId = branchId,
+            IsCancelled = isCancelled,
+            MinSaleDate = minSaleDate,
+            MaxSaleDate = maxSaleDate
+        };
+
+        var command = _mapper.Map<GetSalesCommand>(request);
+        var response = await _mediator.Send(command, cancellationToken);
+
+        return Ok(new PaginatedResponse<SaleResponse>
+        {
+            Success = true,
+            Message = "Sales retrieved successfully",
+            Data = _mapper.Map<IEnumerable<SaleResponse>>(response.Items),
+            CurrentPage = response.CurrentPage,
+            TotalPages = response.TotalPages,
+            TotalCount = response.TotalCount
+        });
     }
 
     [HttpPost]

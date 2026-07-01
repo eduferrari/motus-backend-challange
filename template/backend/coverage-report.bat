@@ -1,30 +1,57 @@
 @ECHO OFF
+SETLOCAL
 
-REM Install tools if not present
-dotnet tool install --global coverlet.console
-dotnet tool install --global dotnet-reportgenerator-globaltool
+SET "SOLUTION=Ambev.DeveloperEvaluation.sln"
+SET "CONFIGURATION=Release"
+SET "RESULTS_DIR=TestResults\Coverage"
+SET "REPORT_DIR=TestResults\CoverageReport"
+SET "DOTNET_TOOLS=%USERPROFILE%\.dotnet\tools"
+SET "PATH=%PATH%;%DOTNET_TOOLS%"
 
-REM Clean and build solution
-dotnet restore Ambev.DeveloperEvaluation.sln
-dotnet build Ambev.DeveloperEvaluation.sln --configuration Release --no-restore
+WHERE dotnet >NUL 2>NUL
+IF ERRORLEVEL 1 (
+    ECHO The .NET SDK was not found in PATH.
+    EXIT /B 1
+)
 
-REM Run tests with coverage
-dotnet test Ambev.DeveloperEvaluation.sln --no-restore --verbosity normal ^
-/p:CollectCoverage=true ^
-/p:CoverletOutputFormat=cobertura ^
-/p:CoverletOutput=./TestResults/coverage.cobertura.xml ^
-/p:Exclude="[*]*.Program%2c[*]*.Startup%2c[*]*.Migrations.*"
+ECHO Checking ReportGenerator...
+WHERE reportgenerator >NUL 2>NUL
+IF ERRORLEVEL 1 (
+    dotnet tool install --global dotnet-reportgenerator-globaltool
+    IF ERRORLEVEL 1 EXIT /B 1
+)
 
-REM Generate coverage report
+ECHO Cleaning previous coverage output...
+IF EXIST "%RESULTS_DIR%" RMDIR /S /Q "%RESULTS_DIR%"
+IF EXIST "%REPORT_DIR%" RMDIR /S /Q "%REPORT_DIR%"
+
+ECHO Restoring solution...
+dotnet restore "%SOLUTION%"
+IF ERRORLEVEL 1 EXIT /B 1
+
+ECHO Building solution...
+dotnet build "%SOLUTION%" --configuration "%CONFIGURATION%" --no-restore
+IF ERRORLEVEL 1 EXIT /B 1
+
+ECHO Running tests with coverage...
+dotnet test "%SOLUTION%" ^
+    --configuration "%CONFIGURATION%" ^
+    --no-build ^
+    --results-directory "%RESULTS_DIR%" ^
+    --collect:"XPlat Code Coverage" ^
+    --verbosity normal
+IF ERRORLEVEL 1 EXIT /B 1
+
+ECHO Generating HTML coverage report...
 reportgenerator ^
--reports:"./tests/**/TestResults/coverage.cobertura.xml" ^
--targetdir:"./TestResults/CoverageReport" ^
--reporttypes:Html
+    -reports:"%RESULTS_DIR%\**\coverage.cobertura.xml" ^
+    -targetdir:"%REPORT_DIR%" ^
+    -reporttypes:Html ^
+    -assemblyfilters:"+Ambev.DeveloperEvaluation.*;-*.Tests" ^
+    -classfilters:"-*.Program;-*.Startup;-*.Migrations.*"
+IF ERRORLEVEL 1 EXIT /B 1
 
-REM Removing temporary files
-rmdir /s /q bin 2>nul
-rmdir /s /q obj 2>nul
+ECHO.
+ECHO Coverage report generated at %REPORT_DIR%\index.html
 
-echo.
-echo Coverage report generated at TestResults/CoverageReport/index.html
-pause
+ENDLOCAL
