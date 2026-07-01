@@ -8,6 +8,9 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using MongoDB.Bson;
+using MongoDB.Bson.Serialization;
+using MongoDB.Bson.Serialization.Serializers;
 using MongoDB.Driver;
 using StackExchange.Redis;
 
@@ -18,8 +21,12 @@ public class InfrastructureModuleInitializer : IModuleInitializer
     public void Initialize(WebApplicationBuilder builder)
     {
         var redisConnection = builder.Configuration.GetConnectionString("Redis") ?? "localhost:6379";
+        var redisOptions = ConfigurationOptions.Parse(redisConnection);
+        redisOptions.AbortOnConnectFail = false;
         builder.Services.AddSingleton<IConnectionMultiplexer>(
-            ConnectionMultiplexer.Connect(redisConnection));
+            ConnectionMultiplexer.Connect(redisOptions));
+
+        BsonSerializer.TryRegisterSerializer(new GuidSerializer(GuidRepresentation.Standard));
 
         var mongoConnectionString = builder.Configuration.GetConnectionString("MongoDB") ?? "mongodb://localhost:27017";
         var mongoUrl = new MongoUrl(mongoConnectionString);
