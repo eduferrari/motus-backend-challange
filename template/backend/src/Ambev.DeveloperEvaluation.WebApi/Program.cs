@@ -7,7 +7,6 @@ using Ambev.DeveloperEvaluation.IoC;
 using Ambev.DeveloperEvaluation.ORM;
 using Ambev.DeveloperEvaluation.WebApi.Middleware;
 using FluentValidation;
-using MassTransit;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -54,24 +53,6 @@ public class Program
                     typeof(ApplicationLayer).Assembly,
                     typeof(Program).Assembly
                 );
-            });
-
-            builder.Services.AddMassTransit(x =>
-            {
-                x.UsingRabbitMq((ctx, cfg) =>
-                {
-                    var rabbitMqHost = builder.Configuration["RabbitMq:Host"] ?? "localhost";
-                    var rabbitMqUser = builder.Configuration["RabbitMq:Username"] ?? "guest";
-                    var rabbitMqPass = builder.Configuration["RabbitMq:Password"] ?? "guest";
-
-                    cfg.Host(rabbitMqHost, "/", h =>
-                    {
-                        h.Username(rabbitMqUser);
-                        h.Password(rabbitMqPass);
-                    });
-
-                    cfg.ConfigureEndpoints(ctx);
-                });
             });
 
             builder.Services.AddValidatorsFromAssembly(typeof(ApplicationLayer).Assembly);

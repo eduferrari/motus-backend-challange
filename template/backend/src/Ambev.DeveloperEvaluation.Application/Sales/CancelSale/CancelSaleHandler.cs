@@ -1,4 +1,6 @@
 using Ambev.DeveloperEvaluation.Application.Sales;
+using Ambev.DeveloperEvaluation.Domain.Events;
+using Ambev.DeveloperEvaluation.Domain.Events.Sales;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
 using AutoMapper;
 using MediatR;
@@ -11,15 +13,18 @@ public class CancelSaleHandler : IRequestHandler<CancelSaleCommand, SaleResult>
     private readonly ISaleRepository _saleRepository;
     private readonly IMapper _mapper;
     private readonly ILogger<CancelSaleHandler> _logger;
+    private readonly IDomainEventPublisher _eventPublisher;
 
     public CancelSaleHandler(
         ISaleRepository saleRepository,
         IMapper mapper,
-        ILogger<CancelSaleHandler> logger)
+        ILogger<CancelSaleHandler> logger,
+        IDomainEventPublisher eventPublisher)
     {
         _saleRepository = saleRepository;
         _mapper = mapper;
         _logger = logger;
+        _eventPublisher = eventPublisher;
     }
 
     public async Task<SaleResult> Handle(CancelSaleCommand request, CancellationToken cancellationToken)
@@ -33,7 +38,16 @@ public class CancelSaleHandler : IRequestHandler<CancelSaleCommand, SaleResult>
 
         sale.Cancel();
         var cancelledSale = await _saleRepository.UpdateAsync(sale, cancellationToken);
+
         _logger.LogInformation("SaleCancelled: {SaleId}", cancelledSale.Id);
+
+        await _eventPublisher.PublishAsync(new SaleCancelledEvent
+        {
+            SaleId = cancelledSale.Id,
+            SaleNumber = cancelledSale.SaleNumber,
+            CustomerId = cancelledSale.CustomerId,
+            CustomerName = cancelledSale.CustomerName
+        }, cancellationToken);
 
         return _mapper.Map<SaleResult>(cancelledSale);
     }
