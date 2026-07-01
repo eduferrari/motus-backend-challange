@@ -3,6 +3,7 @@ using Ambev.DeveloperEvaluation.Domain.Repositories;
 using AutoMapper;
 using FluentValidation;
 using MediatR;
+using Microsoft.Extensions.Logging;
 
 namespace Ambev.DeveloperEvaluation.Application.Sales.CancelSaleItem;
 
@@ -10,11 +11,16 @@ public class CancelSaleItemHandler : IRequestHandler<CancelSaleItemCommand, Sale
 {
     private readonly ISaleRepository _saleRepository;
     private readonly IMapper _mapper;
+    private readonly ILogger<CancelSaleItemHandler> _logger;
 
-    public CancelSaleItemHandler(ISaleRepository saleRepository, IMapper mapper)
+    public CancelSaleItemHandler(
+        ISaleRepository saleRepository,
+        IMapper mapper,
+        ILogger<CancelSaleItemHandler> logger)
     {
         _saleRepository = saleRepository;
         _mapper = mapper;
+        _logger = logger;
     }
 
     public async Task<SaleResult> Handle(CancelSaleItemCommand request, CancellationToken cancellationToken)
@@ -30,7 +36,7 @@ public class CancelSaleItemHandler : IRequestHandler<CancelSaleItemCommand, Sale
 
         sale.CancelItem(request.ItemId);
         var updatedSale = await _saleRepository.UpdateAsync(sale, cancellationToken);
-        Console.WriteLine($"ItemCancelled: {request.ItemId}");
+        _logger.LogInformation("ItemCancelled: {SaleItemId}", request.ItemId);
 
         return _mapper.Map<SaleResult>(updatedSale);
     }
