@@ -1,6 +1,7 @@
 ﻿using Ambev.DeveloperEvaluation.Domain.Events;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
 using Ambev.DeveloperEvaluation.ORM;
+using Ambev.DeveloperEvaluation.ORM.Consumers;
 using Ambev.DeveloperEvaluation.ORM.Messaging;
 using Ambev.DeveloperEvaluation.ORM.Repositories;
 using Microsoft.AspNetCore.Builder;
@@ -32,5 +33,6 @@ public class InfrastructureModuleInitializer : IModuleInitializer
         builder.Services.AddScoped<ISaleRepository, SaleRepository>();
         builder.Services.AddScoped<ISaleReadRepository, MongoSaleReadRepository>();
         builder.Services.AddScoped<IDomainEventPublisher, RedisDomainEventPublisher>();
+        builder.Services.AddHostedService<SaleEventConsumer>();
     }
 }
