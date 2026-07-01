@@ -4,6 +4,7 @@ using Ambev.DeveloperEvaluation.Application.Sales.CreateSale;
 using Ambev.DeveloperEvaluation.Application.Sales.GetSales;
 using Ambev.DeveloperEvaluation.Domain.Entities;
 using Ambev.DeveloperEvaluation.Domain.Events;
+using Ambev.DeveloperEvaluation.Domain.ReadModel;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
 using AutoMapper;
 using FluentAssertions;
@@ -16,12 +17,14 @@ namespace Ambev.DeveloperEvaluation.Unit.Application;
 public class SaleHandlerTests
 {
     private readonly ISaleRepository _saleRepository;
+    private readonly ISaleReadRepository _saleReadRepository;
     private readonly IMapper _mapper;
     private readonly IDomainEventPublisher _eventPublisher;
 
     public SaleHandlerTests()
     {
         _saleRepository = Substitute.For<ISaleRepository>();
+        _saleReadRepository = Substitute.For<ISaleReadRepository>();
         _mapper = Substitute.For<IMapper>();
         _eventPublisher = Substitute.For<IDomainEventPublisher>();
     }
@@ -127,18 +130,12 @@ public class SaleHandlerTests
     [Fact(DisplayName = "Given sales query When listing sales Then returns paginated result")]
     public async Task Handle_GetSalesValidRequest_ReturnsPaginatedResult()
     {
-        var sale = new Sale(
-            "S-LIST-001",
-            DateTime.UtcNow,
-            Guid.NewGuid(),
-            "Customer",
-            Guid.NewGuid(),
-            "Branch",
-            [new SaleItem(Guid.NewGuid(), "Product", 4, 100)]);
+        var saleId = Guid.NewGuid();
+        var document = new SaleDocument { Id = saleId, SaleNumber = "S-LIST-001" };
         var command = new GetSalesCommand { Page = 2, Size = 1, Order = "saleNumber asc" };
-        var mappedSale = new SaleResult { Id = sale.Id, SaleNumber = sale.SaleNumber };
+        var mappedSale = new SaleResult { Id = saleId, SaleNumber = document.SaleNumber };
 
-        _saleRepository.SearchAsync(
+        _saleReadRepository.SearchAsync(
                 command.Page,
                 command.Size,
                 command.Order,
@@ -149,11 +146,11 @@ public class SaleHandlerTests
                 command.MinSaleDate,
                 command.MaxSaleDate,
                 Arg.Any<CancellationToken>())
-            .Returns(([sale], 3));
-        _mapper.Map<IReadOnlyCollection<SaleResult>>(Arg.Any<IReadOnlyCollection<Sale>>())
+            .Returns(((IReadOnlyCollection<SaleDocument>)[document], 3));
+        _mapper.Map<IReadOnlyCollection<SaleResult>>(Arg.Any<IReadOnlyCollection<SaleDocument>>())
             .Returns([mappedSale]);
 
-        var handler = new GetSalesHandler(_saleRepository, _mapper);
+        var handler = new GetSalesHandler(_saleReadRepository, _mapper);
 
         var response = await handler.Handle(command, CancellationToken.None);
 
