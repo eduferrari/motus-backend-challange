@@ -76,6 +76,12 @@ public class Sale : BaseEntity
 
         item.Cancel();
         RecalculateTotal();
+
+        if (_items.All(i => i.IsCancelled))
+        {
+            IsCancelled = true;
+        }
+
         UpdatedAt = DateTime.UtcNow;
     }
 

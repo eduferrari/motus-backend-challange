@@ -1,6 +1,7 @@
 using Ambev.DeveloperEvaluation.Application.Sales;
 using Ambev.DeveloperEvaluation.Application.Sales.CancelSaleItem;
 using Ambev.DeveloperEvaluation.Application.Sales.CreateSale;
+using Ambev.DeveloperEvaluation.Application.Sales.GetSales;
 using Ambev.DeveloperEvaluation.Domain.Entities;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
 using AutoMapper;
@@ -115,6 +116,45 @@ public class SaleHandlerTests
         firstItem.IsCancelled.Should().BeTrue();
         sale.TotalAmount.Should().Be(200);
         await _saleRepository.Received(1).UpdateAsync(sale, Arg.Any<CancellationToken>());
+    }
+
+    [Fact(DisplayName = "Given sales query When listing sales Then returns paginated result")]
+    public async Task Handle_GetSalesValidRequest_ReturnsPaginatedResult()
+    {
+        var sale = new Sale(
+            "S-LIST-001",
+            DateTime.UtcNow,
+            Guid.NewGuid(),
+            "Customer",
+            Guid.NewGuid(),
+            "Branch",
+            [new SaleItem(Guid.NewGuid(), "Product", 4, 100)]);
+        var command = new GetSalesCommand { Page = 2, Size = 1, Order = "saleNumber asc" };
+        var mappedSale = new SaleResult { Id = sale.Id, SaleNumber = sale.SaleNumber };
+
+        _saleRepository.SearchAsync(
+                command.Page,
+                command.Size,
+                command.Order,
+                command.SaleNumber,
+                command.CustomerId,
+                command.BranchId,
+                command.IsCancelled,
+                command.MinSaleDate,
+                command.MaxSaleDate,
+                Arg.Any<CancellationToken>())
+            .Returns(([sale], 3));
+        _mapper.Map<IReadOnlyCollection<SaleResult>>(Arg.Any<IReadOnlyCollection<Sale>>())
+            .Returns([mappedSale]);
+
+        var handler = new GetSalesHandler(_saleRepository, _mapper);
+
+        var response = await handler.Handle(command, CancellationToken.None);
+
+        response.Items.Should().ContainSingle().Which.Should().Be(mappedSale);
+        response.CurrentPage.Should().Be(2);
+        response.TotalPages.Should().Be(3);
+        response.TotalCount.Should().Be(3);
     }
 
     private static CreateSaleCommand CreateValidCommand()

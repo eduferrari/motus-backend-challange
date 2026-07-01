@@ -2,7 +2,6 @@ using Ambev.DeveloperEvaluation.Application.Sales;
 using Ambev.DeveloperEvaluation.Domain.Entities;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
 using AutoMapper;
-using FluentValidation;
 using MediatR;
 using Microsoft.Extensions.Logging;
 
@@ -26,11 +25,6 @@ public class CreateSaleHandler : IRequestHandler<CreateSaleCommand, SaleResult>
 
     public async Task<SaleResult> Handle(CreateSaleCommand request, CancellationToken cancellationToken)
     {
-        var validator = new CreateSaleValidator();
-        var validationResult = await validator.ValidateAsync(request, cancellationToken);
-        if (!validationResult.IsValid)
-            throw new ValidationException(validationResult.Errors);
-
         var existingSale = await _saleRepository.GetBySaleNumberAsync(request.SaleNumber, cancellationToken);
         if (existingSale is not null)
             throw new InvalidOperationException($"Sale with number {request.SaleNumber} already exists");
