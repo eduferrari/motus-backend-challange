@@ -6,6 +6,8 @@
 		<Title>Vendor-Test-Gen-0001</Title>
 	</PropertyGroup>
 	<ItemGroup>
+		<PackageReference Include="MassTransit" Version="8.3.6" />
+		<PackageReference Include="MassTransit.RabbitMQ" Version="8.3.6" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.10" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.10">
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

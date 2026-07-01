@@ -39,6 +39,17 @@ services:
     ports:
       - "27017:27017"
 
+  ambev.developerevaluation.messagebroker:
+    container_name: ambev_developer_evaluation_rabbitmq
+    image: rabbitmq:3.13-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    restart: unless-stopped
+
   ambev.developerevaluation.cache:
     container_name: ambev_developer_evaluation_cache 
     image: redis:7.4.1-alpine     
