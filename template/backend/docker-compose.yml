@@ -11,12 +11,19 @@ services:
       - ASPNETCORE_ENVIRONMENT=Development
       - ASPNETCORE_HTTP_PORTS=8080
       - ASPNETCORE_HTTPS_PORTS=8081
+      - ConnectionStrings__DefaultConnection=Server=ambev_developer_evaluation_database;Database=developer_evaluation;User Id=developer;Password=ev@luAt10n
+      - ConnectionStrings__Redis=ambev_developer_evaluation_cache:6379,password=ev@luAt10n
+      - ConnectionStrings__MongoDB=mongodb://developer:ev%40luAt10n@ambev_developer_evaluation_nosql:27017/developer_evaluation?authSource=admin
     ports:
       - "8080:8080"
       - "8081:8081"
     volumes:
       - ${APPDATA}/Microsoft/UserSecrets:/home/app/.microsoft/usersecrets:ro
       - ${APPDATA}/ASP.NET/Https:/home/app/.aspnet/https:ro
+    depends_on:
+      - ambev.developerevaluation.database
+      - ambev.developerevaluation.nosql
+      - ambev.developerevaluation.cache
 
   ambev.developerevaluation.database:
     container_name: ambev_developer_evaluation_database
@@ -31,20 +38,17 @@ services:
     restart: unless-stopped
 
   ambev.developerevaluation.nosql:
-    container_name: ambev_developer_evaluation_nosql 
-    image: mongo:8.0    
+    container_name: ambev_developer_evaluation_nosql
+    image: mongo:8.0
     environment:
-        MONGO_INITDB_ROOT_USERNAME: developer
-        MONGO_INITDB_ROOT_PASSWORD: ev@luAt10n
+      MONGO_INITDB_ROOT_USERNAME: developer
+      MONGO_INITDB_ROOT_PASSWORD: ev@luAt10n
     ports:
-      - "27017:27017"
+      - "27017"
 
   ambev.developerevaluation.cache:
-    container_name: ambev_developer_evaluation_cache 
-    image: redis:7.4.1-alpine     
+    container_name: ambev_developer_evaluation_cache
+    image: redis:7.4.1-alpine
     command: redis-server --requirepass ev@luAt10n
-    environment:
-       MONGO_INITDB_ROOT_USERNAME: developer
-       MONGO_INITDB_ROOT_PASSWORD: ev@luAt10n
     ports:
-       - "6379:6379"
+      - "6379"

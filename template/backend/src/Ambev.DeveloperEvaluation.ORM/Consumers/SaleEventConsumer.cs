@@ -35,32 +35,34 @@ public class SaleEventConsumer : BackgroundService
     {
         var subscriber = _redis.GetSubscriber();
 
+        // CancellationToken.None is intentional: Redis callbacks are invoked by
+        // StackExchange.Redis thread-pool threads outside the BackgroundService
+        // lifecycle. Using stoppingToken here would cause every in-flight handler
+        // to receive an already-cancelled token the moment the host begins shutdown.
         await subscriber.SubscribeAsync(RedisChannel.Literal("sale.created"), async (_, message) =>
-            await HandleAsync<SaleCreatedEvent>(message, ProjectSaleAsync, stoppingToken));
+            await HandleAsync<SaleCreatedEvent>(message, (evt, _) => UpsertSaleDocumentAsync(evt.SaleId, "SaleCreated")));
 
         await subscriber.SubscribeAsync(RedisChannel.Literal("sale.modified"), async (_, message) =>
-            await HandleAsync<SaleModifiedEvent>(message, ProjectSaleAsync, stoppingToken));
+            await HandleAsync<SaleModifiedEvent>(message, (evt, _) => UpsertSaleDocumentAsync(evt.SaleId, "SaleModified")));
 
         await subscriber.SubscribeAsync(RedisChannel.Literal("sale.cancelled"), async (_, message) =>
-            await HandleAsync<SaleCancelledEvent>(message, ProjectCancelledAsync, stoppingToken));
+            await HandleAsync<SaleCancelledEvent>(message, ProjectCancelledAsync));
 
         await subscriber.SubscribeAsync(RedisChannel.Literal("item.cancelled"), async (_, message) =>
-            await HandleAsync<ItemCancelledEvent>(message, ProjectItemCancelledAsync, stoppingToken));
+            await HandleAsync<ItemCancelledEvent>(message, ProjectItemCancelledAsync));
 
-        // Keep alive until the host shuts down
         await Task.Delay(Timeout.Infinite, stoppingToken).ConfigureAwait(ConfigureAwaitOptions.SuppressThrowing);
     }
 
     private async Task HandleAsync<TEvent>(
         RedisValue message,
-        Func<TEvent, CancellationToken, Task> handler,
-        CancellationToken cancellationToken)
+        Func<TEvent, CancellationToken, Task> handler)
     {
         try
         {
             var evt = JsonSerializer.Deserialize<TEvent>(message.ToString(), JsonOptions);
             if (evt is null) return;
-            await handler(evt, cancellationToken);
+            await handler(evt, CancellationToken.None);
         }
         catch (Exception ex)
         {
@@ -68,13 +70,13 @@ public class SaleEventConsumer : BackgroundService
         }
     }
 
-    private async Task ProjectSaleAsync(SaleCreatedEvent evt, CancellationToken ct)
+    private async Task UpsertSaleDocumentAsync(Guid saleId, string eventName)
     {
         using var scope = _scopeFactory.CreateScope();
         var saleRepo = scope.ServiceProvider.GetRequiredService<ISaleRepository>();
         var readRepo = scope.ServiceProvider.GetRequiredService<ISaleReadRepository>();
 
-        var sale = await saleRepo.GetByIdAsync(evt.SaleId, ct);
+        var sale = await saleRepo.GetByIdAsync(saleId, CancellationToken.None);
         if (sale is null) return;
 
         var document = new SaleDocument
@@ -103,70 +105,31 @@ public class SaleEventConsumer : BackgroundService
             }).ToList()
         };
 
-        await readRepo.UpsertAsync(document, ct);
-        _logger.LogInformation("Projected SaleCreated into MongoDB: {SaleId}", evt.SaleId);
+        await readRepo.UpsertAsync(document, CancellationToken.None);
+        _logger.LogInformation("Projected {Event} into MongoDB: {SaleId}", eventName, saleId);
     }
 
-    private async Task ProjectSaleAsync(SaleModifiedEvent evt, CancellationToken ct)
-    {
-        using var scope = _scopeFactory.CreateScope();
-        var saleRepo = scope.ServiceProvider.GetRequiredService<ISaleRepository>();
-        var readRepo = scope.ServiceProvider.GetRequiredService<ISaleReadRepository>();
-
-        var sale = await saleRepo.GetByIdAsync(evt.SaleId, ct);
-        if (sale is null) return;
-
-        var document = new SaleDocument
-        {
-            Id = sale.Id,
-            SaleNumber = sale.SaleNumber,
-            SaleDate = sale.SaleDate,
-            CustomerId = sale.CustomerId,
-            CustomerName = sale.CustomerName,
-            BranchId = sale.BranchId,
-            BranchName = sale.BranchName,
-            TotalAmount = sale.TotalAmount,
-            IsCancelled = sale.IsCancelled,
-            CreatedAt = sale.CreatedAt,
-            UpdatedAt = sale.UpdatedAt,
-            Items = sale.Items.Select(i => new SaleItemDocument
-            {
-                Id = i.Id,
-                ProductId = i.ProductId,
-                ProductName = i.ProductName,
-                Quantity = i.Quantity,
-                UnitPrice = i.UnitPrice,
-                Discount = i.Discount,
-                TotalAmount = i.TotalAmount,
-                IsCancelled = i.IsCancelled
-            }).ToList()
-        };
-
-        await readRepo.UpsertAsync(document, ct);
-        _logger.LogInformation("Projected SaleModified into MongoDB: {SaleId}", evt.SaleId);
-    }
-
-    private async Task ProjectCancelledAsync(SaleCancelledEvent evt, CancellationToken ct)
+    private async Task ProjectCancelledAsync(SaleCancelledEvent evt, CancellationToken _)
     {
         using var scope = _scopeFactory.CreateScope();
         var readRepo = scope.ServiceProvider.GetRequiredService<ISaleReadRepository>();
 
-        var document = await readRepo.GetByIdAsync(evt.SaleId, ct);
+        var document = await readRepo.GetByIdAsync(evt.SaleId, CancellationToken.None);
         if (document is null) return;
 
         document.IsCancelled = true;
         document.UpdatedAt = evt.OccurredAt;
 
-        await readRepo.UpsertAsync(document, ct);
+        await readRepo.UpsertAsync(document, CancellationToken.None);
         _logger.LogInformation("Projected SaleCancelled into MongoDB: {SaleId}", evt.SaleId);
     }
 
-    private async Task ProjectItemCancelledAsync(ItemCancelledEvent evt, CancellationToken ct)
+    private async Task ProjectItemCancelledAsync(ItemCancelledEvent evt, CancellationToken _)
     {
         using var scope = _scopeFactory.CreateScope();
         var readRepo = scope.ServiceProvider.GetRequiredService<ISaleReadRepository>();
 
-        var document = await readRepo.GetByIdAsync(evt.SaleId, ct);
+        var document = await readRepo.GetByIdAsync(evt.SaleId, CancellationToken.None);
         if (document is null) return;
 
         var item = document.Items.FirstOrDefault(i => i.Id == evt.ItemId);
@@ -175,7 +138,7 @@ public class SaleEventConsumer : BackgroundService
 
         document.UpdatedAt = evt.OccurredAt;
 
-        await readRepo.UpsertAsync(document, ct);
+        await readRepo.UpsertAsync(document, CancellationToken.None);
         _logger.LogInformation("Projected ItemCancelled into MongoDB: {ItemId}", evt.ItemId);
     }
 }
