@@ -3,6 +3,7 @@ using Ambev.DeveloperEvaluation.Application.Sales.CancelSaleItem;
 using Ambev.DeveloperEvaluation.Application.Sales.CreateSale;
 using Ambev.DeveloperEvaluation.Application.Sales.GetSales;
 using Ambev.DeveloperEvaluation.Domain.Entities;
+using Ambev.DeveloperEvaluation.Domain.Events;
 using Ambev.DeveloperEvaluation.Domain.Repositories;
 using AutoMapper;
 using FluentAssertions;
@@ -16,11 +17,13 @@ public class SaleHandlerTests
 {
     private readonly ISaleRepository _saleRepository;
     private readonly IMapper _mapper;
+    private readonly IDomainEventPublisher _eventPublisher;
 
     public SaleHandlerTests()
     {
         _saleRepository = Substitute.For<ISaleRepository>();
         _mapper = Substitute.For<IMapper>();
+        _eventPublisher = Substitute.For<IDomainEventPublisher>();
     }
 
     [Fact(DisplayName = "Given valid sale data When creating sale Then persists sale with calculated totals")]
@@ -38,7 +41,8 @@ public class SaleHandlerTests
         var handler = new CreateSaleHandler(
             _saleRepository,
             _mapper,
-            NullLogger<CreateSaleHandler>.Instance);
+            NullLogger<CreateSaleHandler>.Instance,
+            _eventPublisher);
 
         var response = await handler.Handle(command, CancellationToken.None);
 
@@ -70,7 +74,8 @@ public class SaleHandlerTests
         var handler = new CreateSaleHandler(
             _saleRepository,
             _mapper,
-            NullLogger<CreateSaleHandler>.Instance);
+            NullLogger<CreateSaleHandler>.Instance,
+            _eventPublisher);
 
         var act = () => handler.Handle(command, CancellationToken.None);
 
@@ -108,7 +113,8 @@ public class SaleHandlerTests
         var handler = new CancelSaleItemHandler(
             _saleRepository,
             _mapper,
-            NullLogger<CancelSaleItemHandler>.Instance);
+            NullLogger<CancelSaleItemHandler>.Instance,
+            _eventPublisher);
 
         var response = await handler.Handle(command, CancellationToken.None);
 
