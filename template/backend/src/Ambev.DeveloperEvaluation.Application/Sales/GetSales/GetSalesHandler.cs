@@ -7,18 +7,18 @@ namespace Ambev.DeveloperEvaluation.Application.Sales.GetSales;
 
 public class GetSalesHandler : IRequestHandler<GetSalesCommand, PagedResult<SaleResult>>
 {
-    private readonly ISaleRepository _saleRepository;
+    private readonly ISaleReadRepository _saleReadRepository;
     private readonly IMapper _mapper;
 
-    public GetSalesHandler(ISaleRepository saleRepository, IMapper mapper)
+    public GetSalesHandler(ISaleReadRepository saleReadRepository, IMapper mapper)
     {
-        _saleRepository = saleRepository;
+        _saleReadRepository = saleReadRepository;
         _mapper = mapper;
     }
 
     public async Task<PagedResult<SaleResult>> Handle(GetSalesCommand request, CancellationToken cancellationToken)
     {
-        var (items, totalCount) = await _saleRepository.SearchAsync(
+        var (items, totalCount) = await _saleReadRepository.SearchAsync(
             request.Page,
             request.Size,
             request.Order,
